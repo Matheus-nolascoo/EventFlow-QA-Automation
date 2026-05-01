@@ -6,7 +6,7 @@ require('dotenv').config();
   const context = await browser.newContext();
   const page = await context.newPage();
 
-  console.log('🚀 Iniciando o robô da Code My Party...');
+  console.log('🚀 Iniciando o teste do evento');
 
   // --- LOGIN NO DASHBOARD ---
   await page.goto('https://app.codemyparty.com.br/home/'); 
@@ -21,7 +21,7 @@ require('dotenv').config();
   await page.goto(`https://app.codemyparty.com.br/evento/evento/${idEvento}`);
 
   // --- CRIAR O CONVIDADO DE TESTE ---
-  console.log('📝 Injetando convidado de teste...');
+  console.log('📝 Criando convidado teste...');
   
   // O '*=' significa "contém". 
   // O robô acha quem tem o atributo, mas DEPOIS filtra garantindo que o texto seja 'Convidado' e que esteja visível
@@ -29,11 +29,8 @@ require('dotenv').config();
   await page.locator('#id_nome').fill('Matheus Teste'); 
   await page.locator('input[name="email"]').filter({ visible: true }).fill('atendimento2@codemyparty.com');
   await page.locator('input[name="telefone"]').filter({ visible: true }).fill('35988819515');
+  await page.locator('#id_aprovar').setChecked(false);
   await page.getByRole('button', { name: 'Salvar' }).first().click();
-
-  console.log('🛑 PAUSANDO O TEMPO PARA O MATHEUS INVESTIGAR!');
-  // O navegador vai congelar AQUI. Você poderá ver se o site deu erro de "campo obrigatório".
-  await page.pause();
   
   console.log('✅ Convidado criado com sucesso! O Gupshup já deve estar mandando mensagem pro seu zap.');
 
