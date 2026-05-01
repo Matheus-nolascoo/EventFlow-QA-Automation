@@ -17,7 +17,7 @@ const { chromium } = require('playwright');
     console.log('📸 Tirando o print da página de confirmação...');
     // Tira o print e salva com o nome correto do fluxo
     // A opção fullPage: true garante que o print pegue a tela toda e fique bonito para o cliente
-    await page.screenshot({ path: `${pastaEvidencias}/pagina_de_confirmacao.png`, fullPage: true });
+    await page.screenshot({ path: `${pastaPrintsTestes}/pagina_de_confirmacao.png`, fullPage: true });
 
     console.log('📸 Injetando a selfie no formulário...');
     
@@ -41,7 +41,7 @@ const { chromium } = require('playwright');
     console.log('📸 Tirando o print dos dados enviados...');
     // Tira o print e salva com o nome correto do fluxo
     // A opção fullPage: true garante que o print pegue a tela toda e fique bonito para o cliente
-    await page.screenshot({ path: `${pastaEvidencias}/dados_enviados.png`, fullPage: true });
+    await page.screenshot({ path: `${pastaPrintsTestes}/dados_enviados.png`, fullPage: true });
 
     console.log('🎉 Meta 2 Concluída! Verifique a imagem na sua pasta.');
 
