@@ -55,7 +55,7 @@ require('dotenv').config();
         await qrCodePage.waitForLoadState('networkidle'); 
         await qrCodePage.screenshot({ path: `${CONFIG.PASTA_EVIDENCIAS(CONFIG.ID_EVENTO)}/05_pagina_gestao_qrcode.png`, fullPage: true });
         console.log('🏆 CICLO 100% FECHADO COM SUCESSO!');
-    await adminBrowser.close();
+        await adminBrowser.close();
         await waContext.close();
     }
     )();
