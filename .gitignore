@@ -8,5 +8,4 @@ playwright/.auth/
 .env
 sessao_whatsapp
 Evidencias
-.github
 tests/
