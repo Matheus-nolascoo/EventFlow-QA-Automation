@@ -1,81 +1,95 @@
 const { AdminPage } = require("./pages/AdminPage");
-const { WhatsAppPage } = require("./pages/WhatsAppPage");
 const { ConfirmationPage } = require("./pages/ConfirmationPage");
+const { WhatsAppPage } = require("./pages/WhatsAppPage");
+const { gerarPrintAppleWallet } = require("./utils/walletHelper");
 const CONFIG = require("./config");
 const { chromium } = require("playwright");
 require("dotenv").config();
 
-(async () => {
-  console.log("🚀 INICIANDO A AUTOMAÇÃO END-TO-END...");
-  const idEvento = CONFIG.ID_EVENTO;
-  // Variável única para salvar todas as evidências no mesmo lugar
-  const pastaEvidencias = CONFIG.PASTA_EVIDENCIAS(CONFIG.ID_EVENTO);
-  // 1. PREPARANDO OS NAVEGADORES (CONTEXTOS)
+// 1. O SCRIPT AGORA É UMA FUNÇÃO QUE RECEBE ORDENS!
+async function rodarAutomacaoE2E(dadosDoTeste) {
+  // Desempacotamos os dados dinâmicos que vieram da interface web
+  const { 
+    idEvento, 
+    nomeConvidado, 
+    emailConvidado, 
+    telefoneConvidado, 
+    camposExtras // Isto será um Array dinâmico (ex: Restrição Alimentar, etc)
+  } = dadosDoTeste;
+
+  console.log(`🚀 INICIANDO A AUTOMAÇÃO PARA O EVENTO ${idEvento}...`);
+  console.log(`👤 Convidado: ${nomeConvidado} | 📱 Contato: ${telefoneConvidado}`);
+
+  // A pasta de evidências agora usa o ID dinâmico
+  const pastaEvidencias = CONFIG.PASTA_EVIDENCIAS(idEvento);
+
   const adminBrowser = await chromium.launch({ headless: false });
   const adminContext = await adminBrowser.newContext();
   const adminPage = await adminContext.newPage();
-  // Navegador do WhatsApp (Sessão Persistente)
+
   const userDataDir = "./sessao_whatsapp";
-  const waContext = await chromium.launchPersistentContext(userDataDir, {
-    headless: false,
-  });
+  const waContext = await chromium.launchPersistentContext(userDataDir, { headless: false });
   const waPage = await waContext.newPage();
-  // 2. FASE 1: CRIAR CONVIDADO (No adminPage)
-  console.log("📝 FASE 1: Logando no Dashboard...");
+
+  // --- FASE 1: DASHBOARD ---
+  console.log("📝 A iniciar sessão no Dashboard...");
   const admin = new AdminPage(adminPage);
   await admin.fazerLogin(process.env.ADM_USER, process.env.ADM_PASS);
-  console.log("🔓 Login efetuado com sucesso!");
-  console.log(`📝 Entrando no evento ${CONFIG.ID_EVENTO}...`);
-  await adminPage.goto(
-    `https://app.codemyparty.com.br/evento/evento/${CONFIG.ID_EVENTO}`,
-  );
-  console.log("📝 Criando convidado teste...");
-  // GERA UM NÚMERO ÚNICO PARA O TESTE ATUAL
-  const idTeste = Math.floor(Math.random() * 10000);
-  const nomeDinamico = `Matheus Teste ${idTeste}`;
-  await admin.criarConvidadoTeste(
-    nomeDinamico,
-    "atendimento2@codemyparty.com.br",
-    "35988819515",
-  );
-  console.log(`✅ Convidado "${nomeDinamico}" criado com sucesso!`);
-  // ... FASE 2: Hackeando o WhatsApp Web ...
-  const whatsapp = new WhatsAppPage(waPage); // Cria o especialista
-  await whatsapp.buscarContato(CONFIG.NOME_CONTATO_WHATSAPP); // Ele busca o contato
-  const linkCapturado = await whatsapp.capturarLinkConvite(
-    nomeDinamico,
-    CONFIG.PASTA_EVIDENCIAS(CONFIG.ID_EVENTO),
-  );
-  console.log(`✅ Sucesso! O link capturado foi: ${linkCapturado}`);
-  // ... FASE 3: Enviar Selfie ...
+  
+  // Usamos a variável dinâmica 'idEvento' em vez do CONFIG fixo
+  await adminPage.goto(`https://app.codemyparty.com.br/evento/evento/${idEvento}`);
+
+  console.log("📝 A criar convidado teste...");
+  // Usamos as variáveis dinâmicas em vez de gerar o nome aqui
+  await admin.criarConvidadoTeste(nomeConvidado, emailConvidado, telefoneConvidado);
+  console.log(`✅ Convidado "${nomeConvidado}" criado com sucesso!`);
+
+  // --- FASE 2: WHATSAPP ---
+  const whatsapp = new WhatsAppPage(waPage);
+  await whatsapp.buscarContato(CONFIG.NOME_CONTATO_WHATSAPP); 
+  const linkCapturado = await whatsapp.capturarLinkConvite(nomeConvidado, pastaEvidencias);
+
+  // --- FASE 3: FORMULÁRIO DE CONFIRMAÇÃO (A Mágica Dinâmica) ---
   const confirmacaoPage = await adminContext.newPage();
   const confirmation = new ConfirmationPage(confirmacaoPage);
-  await confirmation.preencherConfirmacao(
+  
+  // Aqui passamos os "camposExtras" para a página de confirmação lidar com eles
+  await confirmation.preencherConfirmacaoDinamicamente(
     linkCapturado,
     CONFIG.CAMINHO_FOTO_TESTE,
-    CONFIG.PASTA_EVIDENCIAS(CONFIG.ID_EVENTO),
+    pastaEvidencias,
+    camposExtras 
   );
-  // ... FASE FINAL: APROVAR ...
-  await admin.aprovarConvidado(CONFIG.ID_EVENTO, nomeDinamico);
-  // ... WHATSAPP FINAL (QR CODE) ...
-  console.log("⏳ Aguardando QR Code no WhatsApp...");
-  await whatsapp.aguardarEReceberQRCode(
-    nomeDinamico,
-    CONFIG.PASTA_EVIDENCIAS(CONFIG.ID_EVENTO),
-  );
+
+  // --- FASE 4: APROVAÇÃO ---
+  await admin.aprovarConvidado(idEvento, nomeConvidado);
+
+  // --- FASE 5: AGUARDAR QR CODE ---
+  await whatsapp.aguardarEReceberQRCode(nomeConvidado, pastaEvidencias);
   await waPage.waitForTimeout(3000);
-  // Captura a nova aba
+
   const todasAbas = waContext.pages();
-  // Pega a última aba que foi aberta (o QR Code de gestão)
   const qrCodePage = todasAbas[todasAbas.length - 1];
-  console.log("📸 Entrando na página de gestão do QR Code...");
   await qrCodePage.bringToFront();
   await qrCodePage.waitForLoadState("networkidle");
-  await qrCodePage.screenshot({
-    path: `${CONFIG.PASTA_EVIDENCIAS(CONFIG.ID_EVENTO)}/05_pagina_gestao_qrcode.png`,
-    fullPage: true,
-  });
-  console.log("🏆 CICLO 100% FECHADO COM SUCESSO!");
+  await qrCodePage.screenshot({ path: `${pastaEvidencias}/05_pagina_gestao_qrcode.png`, fullPage: true });
+
+  // --- FASE 6: APPLE WALLET ---
+  const [downloadWallet] = await Promise.all([
+    qrCodePage.waitForEvent("download"),
+    qrCodePage.getByRole("link", { name: "baixar o seu passe digital" }).click(),
+  ]);
+
+  const caminhoCofre = `./ingresso_temp_${Date.now()}.zip`;
+  await downloadWallet.saveAs(caminhoCofre);
+
+  await gerarPrintAppleWallet(caminhoCofre, pastaEvidencias, nomeConvidado);
+
+  console.log("✅ PACOTE DE EVIDÊNCIAS 100% CONCLUÍDO!");
+
   await adminBrowser.close();
   await waContext.close();
-})();
+}
+
+// 2. EXPORTAMOS A FUNÇÃO PARA O SERVIDOR WEB USAR
+module.exports = { rodarAutomacaoE2E };
