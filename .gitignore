@@ -1,13 +1,12 @@
-
 # Playwright
 node_modules/
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
-/playwright/.auth/
-/.env
-/sessao_whatsapp
-/Evidencias
-/.github
-/tests
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+playwright/.auth/
+.env
+sessao_whatsapp
+Evidencias
+.github
+tests/
