@@ -7,5 +7,4 @@ playwright/.cache/
 playwright/.auth/
 .env
 sessao_whatsapp
-Evidencias
-tests/
+Evidencias/
