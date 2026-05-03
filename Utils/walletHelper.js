@@ -3,10 +3,15 @@ const { createCanvas, loadImage } = require("canvas");
 const fs = require("fs");
 const QRCode = require("qrcode");
 
+// 👇 1. Adicionamos as variáveis dinâmicas na porta de entrada da função
 async function gerarPrintAppleWallet(
   caminhoZip,
   pastaEvidencias,
   nomeConvidado,
+  nomeEvento, // NOVO
+  dataEvento, // NOVO
+  localEvento, // NOVO
+  enderecoEvento, // NOVO
 ) {
   console.log("🔬 Iniciando a autópsia do pacote e o Canvas Helper...");
 
@@ -50,7 +55,9 @@ async function gerarPrintAppleWallet(
 
   pincel.fillStyle = dadosWallet.foregroundColor || "#FFFFFF";
   pincel.font = "bold 20px Arial";
-  pincel.fillText(dadosWallet.logoText || "Code My Party Teste", 75, 48);
+
+  // 👇 2. Usa o nome do evento dinâmico se não vier no JSON
+  pincel.fillText(dadosWallet.logoText || nomeEvento, 75, 48);
 
   try {
     const bufferStrip =
@@ -73,14 +80,19 @@ async function gerarPrintAppleWallet(
 
   pincel.fillStyle = dadosWallet.foregroundColor || "#FFFFFF";
   pincel.font = "18px Arial";
-  pincel.fillText(nomeConvidado, 20, 250, 170); // <-- CORRIGIDO AQUI (Usa a variável da função)
+  pincel.fillText(nomeConvidado, 20, 250, 170);
+
+  // 👇 3. Substituímos o Hardcoded pelas variáveis!
   pincel.font = "16px Arial";
-  pincel.fillText("22/11/2025 às 15h", 210, 250);
+  pincel.fillText(dataEvento, 210, 250, 150); // Adicionado limite de 150px para não estourar a tela
+
   pincel.font = "14px Arial";
-  pincel.fillText("Casa Code", 20, 320);
+  pincel.fillText(localEvento, 20, 320, 120);
+
   pincel.font = "12px Arial";
-  pincel.fillText("Belvedere Mall - R. Sebastião", 150, 320);
-  pincel.fillText("Fabiano Dias, 210...", 150, 335);
+  // Como o endereço pode ser grande, colocamos um limite de 210px de largura.
+  // Se precisar quebrar linha automaticamente, a gente pode criar uma função de WrapText depois!
+  pincel.fillText(enderecoEvento, 150, 320, 210);
 
   pincel.fillStyle = "#FFFFFF";
   pincel.beginPath();
@@ -89,27 +101,20 @@ async function gerarPrintAppleWallet(
 
   // 9. Extraindo o DADO e gerando o QR Code dinamicamente (Modo iPhone)
   try {
-    // 1. Procuramos o dado textual do QR Code dentro do pass.json
-    let textoDoIngresso = "https://codemyparty.com.br"; // Link de segurança
+    let textoDoIngresso = "https://codemyparty.com.br";
 
-    // O pass.json pode guardar o código num array 'barcodes' ou no objeto 'barcode'
     if (dadosWallet.barcodes && dadosWallet.barcodes.length > 0) {
       textoDoIngresso = dadosWallet.barcodes[0].message;
     } else if (dadosWallet.barcode) {
       textoDoIngresso = dadosWallet.barcode.message;
     }
 
-    // 2. Usamos a biblioteca para desenhar o QR Code perfeito em tempo real
     const qrBuffer = await QRCode.toBuffer(textoDoIngresso, {
       width: 180,
-      margin: 1, // Borda fina
-      color: {
-        dark: "#000000", // Cor do QR Code
-        light: "#FFFFFF", // Fundo branco
-      },
+      margin: 1,
+      color: { dark: "#000000", light: "#FFFFFF" },
     });
 
-    // 3. Transformamos em imagem e colamos no nosso Canvas
     const qrImagem = await loadImage(qrBuffer);
     pincel.drawImage(qrImagem, 100, 400, 180, 180);
   } catch (e) {
@@ -129,11 +134,10 @@ async function gerarPrintAppleWallet(
   );
 
   // Limpeza: Apagar o arquivo .zip temporário
-  fs.unlinkSync(caminhoZip); // <-- CORRIGIDO AQUI (Variável que a função conhece)
+  fs.unlinkSync(caminhoZip);
   console.log(
     "✅ Helper: Obra de arte fotorrealista gerada e salva com sucesso!",
   );
 }
 
-// Exportando a ferramenta para o resto do projeto usar
 module.exports = { gerarPrintAppleWallet };

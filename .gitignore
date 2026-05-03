@@ -6,5 +6,7 @@ blob-report/
 playwright/.cache/
 playwright/.auth/
 .env
+*.zip
+*.pkpass
 sessao_whatsapp
 Evidencias/

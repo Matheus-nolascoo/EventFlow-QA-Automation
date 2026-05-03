@@ -7,61 +7,98 @@ class AdminPage {
     this.botaoSubmit = 'button[type="submit"]';
     this.inputNomeConvidado = "#id_nome";
   }
-  // Aqui criamos as "ações" que o robô sabe fazer
+
+  // ---------------------------------------------------------
+  // AÇÃO 1: FAZER LOGIN (Com Inteligência de Memória)
+  // ---------------------------------------------------------
   async fazerLogin(usuario, senha) {
-    await this.page.goto("https://app.codemyparty.com.br/home/");
-    await this.page.fill(this.inputUsuario, usuario);
-    await this.page.fill(this.inputSenha, senha);
-    await this.page.click(this.botaoSubmit);
+    console.log("🕵️‍♂️ Verificando se precisamos fazer login...");
+    
+    // Verifica se o campo de usuário está na tela (espera rapidinha de 3 segundos)
+    const precisaLogar = await this.page.locator(this.inputUsuario).isVisible({ timeout: 3000 }).catch(() => false);
+
+    if (precisaLogar) {
+      console.log("📝 Inserindo credenciais...");
+      await this.page.fill(this.inputUsuario, usuario);
+      await this.page.fill(this.inputSenha, senha);
+      await this.page.click(this.botaoSubmit);
+      
+      // Espera a Home carregar para confirmar que o login deu certo
+      await this.page.waitForLoadState("networkidle");
+    } else {
+      console.log("🔓 O sistema já estava logado! Pulando a etapa de credenciais.");
+    }
   }
-  async criarConvidadoTeste(nome, email, telefone) {
-    await this.page.goto(`https://app.codemyparty.com.br/evento/evento/1814`);
-    await this.page
-      .locator('a[ic-include*="novo_convidado"]')
-      .filter({ hasText: "Convidado", visible: true })
-      .click();
-    // Preenche os dados
+
+  // ---------------------------------------------------------
+  // AÇÃO 2: CRIAR CONVIDADO (Via Modal na Home com XPath)
+  // ---------------------------------------------------------
+  async criarConvidadoTeste(idEvento, nome, email, telefone) {
+    console.log(`👤 A preparar para criar convidado no evento ${idEvento}...`);
+
+    // 1. Abre o Dropdown de Eventos
+    const seletorDropdown = 'button[data-id="select_evento_painel"]';
+    await this.page.locator(seletorDropdown).first().waitFor({ state: "visible", timeout: 15000 });
+    await this.page.locator(seletorDropdown).first().click();
+
+    // 2. Seleciona o Evento específico
+    await this.page.getByText(idEvento.toString()).filter({ visible: true }).first().click();
+
+    // 3. Clica no botão "+Convidado" (Usando o GPS Absoluto - XPath)
+    console.log("🪟 Abrindo o modal de criação...");
+    const botaoNovoConvidado = this.page.locator('//*[@id="tabela"]/div/div[2]/div/div/div[1]/div[1]/button[4]'); 
+    
+    await botaoNovoConvidado.waitFor({ state: "visible", timeout: 10000 });
+    await botaoNovoConvidado.click({ force: true });
+
+    // 4. Preenche os dados no modal
+    console.log("🪟 A preencher o formulário no modal...");
+    await this.page.locator("#id_nome").waitFor({ state: "visible", timeout: 15000 });
     await this.page.locator("#id_nome").fill(nome);
     await this.page.locator('input[name="email"]').fill(email);
     await this.page.locator('input[name="telefone"]').fill(telefone);
-    await this.page.locator("#id_aprovar").setChecked(false);
-    // Clica em salvar
+    
+    // Desmarca aprovação
+    const checkboxAprovar = this.page.locator("#id_aprovar");
+    if (await checkboxAprovar.isVisible()) {
+        await checkboxAprovar.setChecked(false);
+    }
+
+    // 5. Salva o convidado
     await this.page.getByRole("button", { name: "Salvar" }).first().click();
+    await this.page.locator("#id_nome").waitFor({ state: "hidden", timeout: 10000 });
+    console.log("✅ Convidado criado com sucesso via Modal!");
   }
+
+  // ---------------------------------------------------------
+  // AÇÃO 3: APROVAR CONVIDADO
+  // ---------------------------------------------------------
   async aprovarConvidado(idEvento, nomeConvidado) {
-    // 1. Vai para a home
-    await this.page.goto("https://app.codemyparty.com.br/home/");
-    // 2. Espera a página estar totalmente carregada
-    await this.page.waitForLoadState("networkidle");
-    // 3. BUSCA SEGURA: Define o seletor e espera ele aparecer de verdade
+    // 1. BUSCA SEGURA: Define o seletor do dropdown e espera ele aparecer
     const seletorDropdown = 'button[data-id="select_evento_painel"]';
-    await this.page
-      .locator(seletorDropdown)
-      .first()
-      .waitFor({ state: "visible", timeout: 15000 });
+    await this.page.locator(seletorDropdown).first().waitFor({ state: "visible", timeout: 15000 });
     await this.page.locator(seletorDropdown).first().click();
-    // 4. Continua o resto do processo...
-    await this.page
-      .getByText(idEvento)
-      .filter({ visible: true })
-      .first()
-      .click();
-    // 5. ESPERA INTELIGENTE: Aguarda a ampulheta aparecer antes de clicar
-    const filtroPendentes = this.page
-      .locator('[data-original-title="Esperando Aprovação"]')
-      .first();
+
+    // 2. Clica no Evento Dinâmico
+    await this.page.getByText(idEvento.toString()).filter({ visible: true }).first().click();
+
+    // 3. Aguarda a ampulheta aparecer antes de clicar
+    const filtroPendentes = this.page.locator('[data-original-title="Esperando Aprovação"]').first();
     await filtroPendentes.waitFor({ state: "visible" });
     await filtroPendentes.click();
-    // 6. Intercepta o pop-up
+
+    // 4. Intercepta o pop-up
     this.page.once("dialog", async (dialog) => {
       await dialog.accept();
     });
-    // 7. BUSCA SEGURA: Espera o botão específico do convidado estar visível
-    const botaoAprovar = this.page
-      .locator(`button[ic-confirm*="${nomeConvidado}"]`)
-      .first();
-    await botaoAprovar.waitFor({ state: "visible", timeout: 15000 }); // Espera até 15s
+
+    // 5. Espera o botão específico do convidado estar visível
+    const botaoAprovar = this.page.locator(`button[ic-confirm*="${nomeConvidado}"]`).first();
+    await botaoAprovar.waitFor({ state: "visible", timeout: 15000 }); 
     await botaoAprovar.click();
+    
+    console.log(`✅ Convidado ${nomeConvidado} aprovado com sucesso via Dashboard!`);
   }
 }
+
 module.exports = { AdminPage };
