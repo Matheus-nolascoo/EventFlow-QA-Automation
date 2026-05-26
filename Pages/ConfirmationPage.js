@@ -1,3 +1,5 @@
+const logger = require("../utils/logger");
+
 class ConfirmationPage {
   constructor(page) {
     this.page = page;
@@ -16,9 +18,9 @@ class ConfirmationPage {
       fullPage: true,
     });
 
-    // 🧠 1. CAMPOS EXTRAS DINÂMICOS
+    // 1. CAMPOS EXTRAS DINÂMICOS
     if (camposExtras && camposExtras.length > 0) {
-      console.log("🕵️‍♂️ A preencher campos extras dinâmicos...");
+      logger.info("Preenchendo campos extras dinâmicos...");
 
       for (const campo of camposExtras) {
         try {
@@ -29,45 +31,45 @@ class ConfirmationPage {
           ) {
             await campoLabel.fill(campo.resposta);
           } else {
-            const inputLocator = this.page.locator(
-              `//label[contains(text(), '${campo.pergunta}')]/following-sibling::input | //div[contains(text(), '${campo.pergunta}')]/following-sibling::input`,
-            );
+            const inputLocator = this.page
+              .locator("div")
+              .filter({ hasText: campo.pergunta })
+              .locator("input, textarea");
             await inputLocator.fill(campo.resposta);
           }
-          console.log(
-            `✔️ Preencheu o campo '${campo.pergunta}' com '${campo.resposta}'`,
+          logger.info(
+            `Campo preenchido '${campo.pergunta}' com '${campo.resposta}'`,
           );
         } catch (error) {
-          console.log(
-            `⚠️ Aviso: Não foi possível preencher o campo extra: ${campo.pergunta}`,
+          logger.warn(
+            `Aviso: Não foi possível preencher o campo extra: ${campo.pergunta}`,
           );
         }
       }
     }
 
-    // 📸 2. UPLOAD DE FOTO (Agora exigindo que seja VISÍVEL)
-    console.log("🔍 A verificar se o evento exige fotografia...");
+    // 2. UPLOAD DE FOTO
+    logger.info("Verificando se o evento exige fotografia...");
     try {
       const campoFoto = this.page.locator(this.inputFoto).first();
-      // O segredo está aqui: state "visible". Se estiver escondido no HTML, ele ignora.
       await campoFoto.waitFor({ state: "visible", timeout: 3000 });
-      console.log("📸 Campo de foto visível! A enviar o ficheiro...");
+      logger.info("Campo de foto visível! Enviando ficheiro...");
       await campoFoto.setInputFiles(caminhoFoto);
     } catch (e) {
-      console.log(
-        "⏩ Nenhuma fotografia visível/exigida neste evento. A avançar...",
+      logger.info(
+        "Nenhuma fotografia visível/exigida neste evento. Avançando...",
       );
     }
 
-    // ✅ 3. CHECKBOX DOS TERMOS DE PRIVACIDADE
-    console.log("✅ A marcar a checkbox de privacidade...");
+    // 3. CHECKBOX DOS TERMOS DE PRIVACIDADE
+    logger.info("Marcando a checkbox de privacidade...");
     try {
       const checkboxAceite = this.page.locator(this.checkAceite).first();
       await checkboxAceite.waitFor({ state: "attached", timeout: 3000 });
       await checkboxAceite.setChecked(true, { force: true });
     } catch (e) {
-      console.log(
-        "⚠️ Checkbox invisível pelo ID padrão. A forçar o clique alternativo...",
+      logger.info(
+        "Checkbox invisível pelo ID padrão. Forçando o clique alternativo...",
       );
       await this.page
         .locator("label")
@@ -76,11 +78,10 @@ class ConfirmationPage {
         .click({ force: true });
     }
 
-    // 🚀 4. ENVIAR FORMULÁRIO
-    console.log("🚀 A submeter o formulário de confirmação...");
+    // 4. ENVIAR FORMULÁRIO
+    logger.info("Enviando o formulário de confirmação...");
     await this.page.locator(this.botaoEnviar).click();
 
-    // Aguarda a mensagem de sucesso e tira a fotografia final
     await this.page
       .getByText(/Dados enviados com sucesso|confirmada/i)
       .waitFor({ timeout: 15000 });

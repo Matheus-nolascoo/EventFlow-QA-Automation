@@ -2,18 +2,19 @@ const AdmZip = require("adm-zip");
 const { createCanvas, loadImage } = require("canvas");
 const fs = require("fs");
 const QRCode = require("qrcode");
+const logger = require("./logger");
 
-// 👇 1. Adicionamos as variáveis dinâmicas na porta de entrada da função
+//  1. Adicionamos as variáveis dinâmicas na porta de entrada da função
 async function gerarPrintAppleWallet(
   caminhoZip,
   pastaEvidencias,
   nomeConvidado,
-  nomeEvento, // NOVO
-  dataEvento, // NOVO
-  localEvento, // NOVO
-  enderecoEvento, // NOVO
+  nomeEvento,
+  dataEvento,
+  localEvento,
+  enderecoEvento,
 ) {
-  console.log("🔬 Iniciando a autópsia do pacote e o Canvas Helper...");
+  logger.info("Iniciando a autópsia do pacote e o Canvas Helper...");
 
   const zip = new AdmZip(caminhoZip);
   const dadosWallet = JSON.parse(zip.readAsText("pass.json"));
@@ -84,14 +85,12 @@ async function gerarPrintAppleWallet(
 
   // 👇 3. Substituímos o Hardcoded pelas variáveis!
   pincel.font = "16px Arial";
-  pincel.fillText(dataEvento, 210, 250, 150); // Adicionado limite de 150px para não estourar a tela
+  pincel.fillText(dataEvento, 210, 250, 150);
 
   pincel.font = "14px Arial";
   pincel.fillText(localEvento, 20, 320, 120);
 
   pincel.font = "12px Arial";
-  // Como o endereço pode ser grande, colocamos um limite de 210px de largura.
-  // Se precisar quebrar linha automaticamente, a gente pode criar uma função de WrapText depois!
   pincel.fillText(enderecoEvento, 150, 320, 210);
 
   pincel.fillStyle = "#FFFFFF";
@@ -118,7 +117,7 @@ async function gerarPrintAppleWallet(
     const qrImagem = await loadImage(qrBuffer);
     pincel.drawImage(qrImagem, 100, 400, 180, 180);
   } catch (e) {
-    console.log("⚠️ Erro ao gerar QR Code dinâmico, aplicando fallback.");
+    logger.warn("Erro ao gerar QR Code dinâmico, aplicando fallback.");
     pincel.fillStyle = "#111111";
     pincel.fillRect(105, 405, 170, 170);
     pincel.fillStyle = "#FFFFFF";
@@ -135,9 +134,7 @@ async function gerarPrintAppleWallet(
 
   // Limpeza: Apagar o arquivo .zip temporário
   fs.unlinkSync(caminhoZip);
-  console.log(
-    "✅ Helper: Obra de arte fotorrealista gerada e salva com sucesso!",
-  );
+  logger.info("Helper: Obra de arte fotorrealista gerada e salva com sucesso!");
 }
 
 module.exports = { gerarPrintAppleWallet };

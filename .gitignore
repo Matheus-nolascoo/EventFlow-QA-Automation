@@ -8,5 +8,5 @@ playwright/.auth/
 .env
 *.zip
 *.pkpass
-sessao_whatsapp
+whatsapp-session/
 Evidencias/
