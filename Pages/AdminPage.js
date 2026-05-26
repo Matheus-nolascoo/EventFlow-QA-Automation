@@ -23,7 +23,10 @@ class AdminPage {
       await this.page.fill(this.inputSenha, senha);
       await this.page.click(this.botaoSubmit);
 
-      await this.page.waitForLoadState("networkidle");
+      await this.page.waitForSelector(this.inputNomeConvidado, {
+        state: "visible",
+        timeout: 15000,
+      });
     } else {
       logger.info(
         "O sistema já estava logado! Pulando a etapa de credenciais.",

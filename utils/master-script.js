@@ -9,7 +9,7 @@ require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
 
-async function ligarMotores() {
+async function setupBrowsers() {
   logger.info("Iniciando os navegadores e preparando o ambiente...");
 
   // AJUSTE: Usando o novo nome padronizado da pasta da sessão do WhatsApp
@@ -34,7 +34,7 @@ async function ligarMotores() {
   };
 }
 
-async function rodarAutomacaoE2E(dadosDoTeste) {
+async function runE2EFlow(dadosDoTeste) {
   const {
     idEvento,
     nomeConvidado,
@@ -50,8 +50,8 @@ async function rodarAutomacaoE2E(dadosDoTeste) {
   logger.info(`INICIANDO A AUTOMAÇÃO PARA O EVENTO ${idEvento}...`);
   logger.info(`Convidado: ${nomeConvidado} | Contato: ${telefoneConvidado}`);
 
-  const pastaEvidencias = CONFIG.PASTA_EVIDENCIAS(idEvento);
-  const { waContext, adminPage, waPage } = await ligarMotores();
+  const evidencePath = CONFIG.PASTA_EVIDENCIAS(idEvento);
+  const { waContext, adminPage, waPage } = await setupBrowsers();
   let guestBrowser = null;
 
   try {
@@ -88,7 +88,7 @@ async function rodarAutomacaoE2E(dadosDoTeste) {
 
     const linkCapturado = await whatsapp.capturarLinkConvite(
       nomeConvidado,
-      pastaEvidencias,
+      evidencePath,
     );
 
     // ====================================================================
@@ -104,13 +104,16 @@ async function rodarAutomacaoE2E(dadosDoTeste) {
 
     logger.info(`Navegando para o convite: ${linkCapturado}`);
     await confirmacaoPage.goto(linkCapturado);
-    await confirmacaoPage.waitForLoadState("networkidle");
+    await confirmacaoPage.waitForSelector('button[type="submit"]', {
+      state: "visible",
+      timeout: 15000,
+    });
 
     const confirmation = new ConfirmationPage(confirmacaoPage);
 
     await confirmation.preencherConfirmacaoDinamicamente(
       camposExtras,
-      pastaEvidencias,
+      evidencePath,
       CONFIG.CAMINHO_FOTO_TESTE,
     );
 
@@ -122,15 +125,18 @@ async function rodarAutomacaoE2E(dadosDoTeste) {
     await admin.aprovarConvidado(idEvento, nomeConvidado);
 
     // --- FASE 5: AGUARDAR QR CODE ---
-    await whatsapp.aguardarEReceberQRCode(nomeConvidado, pastaEvidencias);
+    await whatsapp.aguardarEReceberQRCode(nomeConvidado, evidencePath);
     await whatsapp.clicarNoBotaoDoQrCode();
 
     const todasAbas = waContext.pages();
     const qrCodePage = todasAbas[todasAbas.length - 1];
     await qrCodePage.bringToFront();
-    await qrCodePage.waitForLoadState("networkidle");
+    await qrCodePage.waitForSelector('img[alt="QR Code"]', {
+      state: "visible",
+      timeout: 15000,
+    });
     await qrCodePage.screenshot({
-      path: `${pastaEvidencias}/05_pagina_gestao_qrcode.png`,
+      path: `${evidencePath}/05_pagina_gestao_qrcode.png`,
       fullPage: true,
     });
     logger.info("QR Code recebido e evidências capturadas!");
@@ -143,13 +149,17 @@ async function rodarAutomacaoE2E(dadosDoTeste) {
         .click(),
     ]);
 
-    // O arquivo ZIP temporário continua sendo salvo na raiz para ser limpo depois
-    const caminhoCofre = `./ingresso_temp_${Date.now()}.zip`;
+    const caminhoCofre = path.join(
+      __dirname,
+      "..",
+      "temp",
+      `ingresso_temp_${Date.now()}.zip`,
+    );
     await downloadWallet.saveAs(caminhoCofre);
 
     await gerarPrintAppleWallet(
       caminhoCofre,
-      pastaEvidencias,
+      evidencePath,
       nomeConvidado,
       nomeEvento,
       dataEvento,
@@ -165,10 +175,14 @@ async function rodarAutomacaoE2E(dadosDoTeste) {
     logger.info("Desligando os navegadores e liberando o terminal...");
 
     if (guestBrowser) {
-      await guestBrowser.close().catch(() => {});
+      await guestBrowser
+        .close()
+        .catch((e) => logger.warn(`Erro ao fechar guestBrowser: ${e.message}`));
     }
     if (waContext) {
-      await waContext.close().catch(() => {});
+      await waContext
+        .close()
+        .catch((e) => logger.warn(`Erro ao fechar waContext: ${e.message}`));
     }
     limparArquivosTemporarios();
 
@@ -176,24 +190,18 @@ async function rodarAutomacaoE2E(dadosDoTeste) {
     // Limpa arquivos desnecessários da raiz
     // ====================================================================
     function limparArquivosTemporarios() {
-      logger.info("Varrendo arquivos temporários do Apple Wallet...");
+      logger.info("Varrendo arquivos temporários...");
       try {
-        // AJUSTE: Como este arquivo script_mestre.js agora mora dentro de /utils,
-        // o __dirname aponta para lá. Precisamos voltar um nível ('..') para acessar a raiz do projeto.
-        const raizDoProjeto = path.join(__dirname, "..");
-        const arquivosNaRaiz = fs.readdirSync(raizDoProjeto);
-
-        for (const arquivo of arquivosNaRaiz) {
-          if (arquivo.endsWith(".zip") || arquivo.endsWith(".pkpass")) {
-            fs.unlinkSync(path.join(raizDoProjeto, arquivo));
+        const pastaTemp = path.join(__dirname, "..", "temp");
+        if (fs.existsSync(pastaTemp)) {
+          const arquivos = fs.readdirSync(pastaTemp);
+          for (const arquivo of arquivos) {
+            fs.unlinkSync(path.join(pastaTemp, arquivo));
           }
         }
-        logger.info("Limpeza concluída!");
+        logger.info("Limpeza da pasta temp concluída!");
       } catch (erroLimpeza) {
-        logger.info(
-          "Erro menor ao tentar limpar os zips (Pode ignorar): " +
-            erroLimpeza.message,
-        );
+        logger.error("Falha ao limpar pasta temp: ", erroLimpeza);
       }
     }
 
@@ -201,4 +209,4 @@ async function rodarAutomacaoE2E(dadosDoTeste) {
   }
 }
 
-module.exports = { rodarAutomacaoE2E };
+module.exports = { runE2EFlow };
