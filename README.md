@@ -26,6 +26,21 @@ Este projeto é um mini sistema de automação E2E construído com **Playwright*
 
 ---
 
+## 🧠 Desafios Técnicos
+
+- Gerenciamento de múltiplas abas simultâneas no navegador
+- Sincronização assíncrona entre WhatsApp Web e plataforma administrativa
+- Redução de flakiness em automações E2E
+- Manipulação dinâmica de QR Codes e evidências visuais
+
+## 🛠️ Stack Arquitetural
+
+- Playwright → automação E2E
+- Node.js → runtime da automação
+- JavaScript → orquestração dos fluxos
+- Canvas API → geração de evidências visuais
+- ZIP Utilities → empacotamento automatizado
+
 ## 🏗️ Arquitetura do Robô
 
 Abaixo está o fluxo visual da jornada que o robô executa:
